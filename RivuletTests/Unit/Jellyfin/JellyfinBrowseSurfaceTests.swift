@@ -193,6 +193,24 @@ final class JellyfinBrowseSurfaceTests: XCTestCase {
         XCTAssertEqual(rail.map(\.row.id), ["plex-cw", "plex-movies", "pin", "plex-tv"])
     }
 
+    /// Favorites follow their library's rows; a hidden library's are dropped;
+    /// pinned playlists come after every library row.
+    func test_homeRail_personalRows_favoritesWithTheirLibrary_playlistsLast() {
+        func lib(_ id: String, _ key: String?) -> CachedHomeHub {
+            var hub = row(id)
+            hub.libraryKey = key
+            return hub
+        }
+        let rail = PlexHomeViewController.homeRail(
+            plex: [row("plex-cw", cw: true), lib("angel-movies", "1"), lib("angel-tv", "2")],
+            jellyfin: [lib("test-movies", "jellyfin:test/m")],
+            personal: [lib("fav-movies", "1"), lib("fav-hidden", "3"), lib("fav-test", "jellyfin:test/m"),
+                       row("playlist")],
+            libraryOrder: ["1", "jellyfin:test/m", "2"])
+        XCTAssertEqual(rail.map(\.row.id),
+                       ["plex-cw", "angel-movies", "fav-movies", "test-movies", "fav-test", "angel-tv", "playlist"])
+    }
+
     func test_homeRail_jellyfinOnly() {
         let rail = PlexHomeViewController.homeRail(plex: [], jellyfin: [row("jf-cw", cw: true), row("jf-movies")])
         XCTAssertEqual(rail.map(\.row.id), ["jf-cw", "jf-movies"])

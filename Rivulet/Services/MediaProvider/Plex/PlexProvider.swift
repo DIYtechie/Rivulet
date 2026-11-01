@@ -319,6 +319,27 @@ final class PlexProvider: MediaProvider, @unchecked Sendable {
         return MediaHub(id: "\(library.id).recentlyAdded", providerID: id, title: hub.title, style: hub.style, items: hub.items)
     }
 
+    /// Plex has no favorite flag: a rating above three stars is one, as
+    /// `PlexUserRating.isFavorite` and Music's favorites filter have it.
+    var supportsFavorites: Bool { true }
+
+    func favorites(in library: MediaLibrary) async throws -> [MediaItem] {
+        try await plexCall {
+            let threshold = Int(PlexUserRating.favoriteStarThreshold * PlexUserRating.starScale)
+            let result = try await networkManager.getLibraryItemsWithTotal(
+                serverURL: serverURL, authToken: authToken,
+                sectionId: library.id,
+                size: PersonalHomeRows.rowLimit,
+                sort: "titleSort",
+                // ">>=" is Plex's "greater than", as in Music's favorites filter.
+                filters: [URLQueryItem(name: "userRating>>", value: "\(threshold)")]
+            )
+            return result.items.map {
+                PlexMediaMapper.item($0, providerID: id, serverURL: serverURL, authToken: authToken)
+            }
+        }
+    }
+
     // MARK: - Playback
 
     /// Plex items play through the `.plex` player path, which applies quality there; the cap is unused.
