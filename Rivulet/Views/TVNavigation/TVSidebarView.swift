@@ -111,7 +111,8 @@ struct TVSidebarView: View {
             profileAvatar: profileManager.selectedUser?.thumb.flatMap { URL(string: $0) },
             canSwitchProfile: profileManager.hasMultipleProfiles,
             hasMediaServer: isSignedInToAnyServer,
-            playlistServers: PlaylistServer.current(visiblePlaylistProviders))
+            playlistServers: PlaylistServer.current(visiblePlaylistProviders),
+            favoritesServers: PlaylistServer.favoritesServers())
     }
 
     /// Servers that get a Playlists row: those with playlists, less the rows Settings hides.
@@ -558,6 +559,8 @@ struct TVSidebarView: View {
             return PlexHomeViewController(mode: .watchlist)
         case .playlists(let providerID):
             return PlexHomeViewController(mode: .playlists(providerID: providerID))
+        case .favorites(let providerID):
+            return PlexHomeViewController(mode: .favorites(providerID: providerID))
         case .search:
             let search = SearchContainerViewController()
             search.onNestedChange = { [nestedNavState] isNested in
@@ -634,7 +637,7 @@ struct TVSidebarView: View {
                 // Unreachable: mounted directly as a UIKit VC above. Kept so
                 // this switch stays exhaustive over SidebarTab.
                 Color.clear
-            case .watchlist, .playlists:
+            case .watchlist, .playlists, .favorites:
                 // Unreachable: mounted directly as a UIKit VC above. Kept so
                 // this switch stays exhaustive over SidebarTab.
                 Color.clear

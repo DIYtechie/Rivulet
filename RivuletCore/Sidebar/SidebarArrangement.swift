@@ -28,6 +28,13 @@ enum SidebarArrangement {
 
     private static let playlistsPrefix = "#playlists/"
 
+    /// A server's Favorites row, keyed like its Playlists row.
+    static func favorites(server: String) -> String { favoritesPrefix + server }
+
+    private static let favoritesPrefix = "#favorites/"
+
+    static func isPlaylists(_ key: String) -> Bool { key.hasPrefix(playlistsPrefix) }
+
     /// Any row that is not a library.
     static func isAppRow(_ key: String) -> Bool { key.hasPrefix("#") }
 
@@ -36,6 +43,7 @@ enum SidebarArrangement {
     /// The server a row belongs to: libraries and Playlists rows; nil for the rest.
     static func server(ofKey key: String) -> String? {
         if key.hasPrefix(playlistsPrefix) { return String(key.dropFirst(playlistsPrefix.count)) }
+        if key.hasPrefix(favoritesPrefix) { return String(key.dropFirst(favoritesPrefix.count)) }
         if isAppRow(key) { return nil }
         return key.contains(":") ? String(key.prefix { $0 != "/" }) : ""
     }

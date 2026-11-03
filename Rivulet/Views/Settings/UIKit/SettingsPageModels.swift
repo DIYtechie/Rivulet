@@ -237,6 +237,7 @@ enum SettingsContent {
         case .about:       return about
         case .appIconPicker:          return appIconPicker
         case .homeHeroPicker:         return homeHeroPicker
+        case .homeGridPicker:         return homeGridPicker
         case .detailRatingPicker:     return detailRatingPicker
         case .autoplayCountdownPicker: return autoplayCountdownPicker
         case .skipIntervalPicker:     return skipIntervalPicker
@@ -304,6 +305,19 @@ enum SettingsContent {
                 })))
         }
         return rows
+    }
+
+    /// The library Home ends with as a grid (`HomeGridLibrary`), or Off.
+    private static var homeGridPicker: [SettingsRowItem] {
+        let off = SettingsRowItem(id: "hg_off", title: "Off", kind: .option(
+            isSelected: { HomeGridLibrary.selectedKey == nil },
+            select: { HomeGridLibrary.select(nil) }))
+        return [off] + HomeGridLibrary.candidates.map { library in
+            SettingsRowItem(id: "hg_\(library.settingsKey)", verbatim: serverLabeled(library.title, providerID: library.providerID),
+                            kind: .option(
+                isSelected: { HomeGridLibrary.selectedKey == library.settingsKey },
+                select: { HomeGridLibrary.select(library) }))
+        }
     }
 
     /// The Home section's value: Off, the one source, or Mixed.
@@ -465,6 +479,11 @@ enum SettingsContent {
             SettingsRowItem(id: "homeRows", title: "Rows", kind: .navigation(.homeRows)),
             SettingsRowItem(id: "homeHero", title: "Hero",
                             kind: .navigationValue(.homeHeroPicker, value: { homeHeroTitle })),
+            SettingsRowItem(id: "homeGrid", title: "Grid",
+                            kind: .navigationValue(.homeGridPicker, value: {
+                                HomeGridLibrary.selected.map { serverLabeled($0.title, providerID: $0.providerID) }
+                                    ?? String(localized: "Off")
+                            })),
             toggle("personalizedRecs", "Personalized Recommendations", key: "enablePersonalizedRecommendations", default: false)
         ]
         rows += [
@@ -1235,7 +1254,8 @@ enum SettingsContent {
             liveTVSources: LiveTVDataStore.shared.sources,
             combineLiveTV: SettingsStore.bool("combineLiveTVSources", default: true),
             showDiscover: PlexAuthManager.shared.hasCredentials, showWatchlist: PlexAuthManager.shared.hasCredentials,
-            playlistServers: PlaylistServer.current(PlaylistAvailability.shared.providerIDs))
+            playlistServers: PlaylistServer.current(PlaylistAvailability.shared.providerIDs),
+            favoritesServers: PlaylistServer.favoritesServers())
         let byKey = Dictionary(rows.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
         return SidebarArrangement.arrange(rows.map(\.key), order: LibrarySettingsManager.shared.libraryOrder)
             .compactMap { byKey[$0] }
@@ -1245,7 +1265,7 @@ enum SettingsContent {
         let mgr = LibrarySettingsManager.shared
         let entries = sidebarSettingsRows()
         let libraryKeys = entries.map(\.key).filter { !SidebarArrangement.isAppRow($0) }
-        let playlistKeys = entries.map(\.key).filter { SidebarArrangement.server(ofKey: $0) != nil && SidebarArrangement.isAppRow($0) }
+        let playlistKeys = entries.map(\.key).filter(SidebarArrangement.isPlaylists)
         // Reset, then Add All / Remove All (libraries only), at the top.
         var rows: [SettingsRowItem] = entries.isEmpty ? [] : [
             SettingsRowItem(id: "resetSidebar", title: "Reset", kind: .action(destructive: true, handler: { vc in
@@ -1291,6 +1311,10 @@ enum SettingsContent {
                 // Live TV leaves the sidebar only with its sources: no toggle, nothing
                 // to open, but focusable so it can be held and moved.
                 kind = .action(destructive: false, handler: { _ in })
+            case _ where SidebarArrangement.isAppRow(key) && !SidebarArrangement.isPlaylists(key):
+                // A server's Favorites row.
+                kind = .toggle(get: { LibrarySettingsManager.shared.isLibraryVisible(key) },
+                               set: { _ in LibrarySettingsManager.shared.toggleVisibility(for: key) })
             case _ where SidebarArrangement.isAppRow(key):
                 kind = .toggle(get: { LibrarySettingsManager.shared.isPlaylistsRowVisible(key) },
                                set: { LibrarySettingsManager.shared.setPlaylistsRow(key, visible: $0, allKeys: playlistKeys) })

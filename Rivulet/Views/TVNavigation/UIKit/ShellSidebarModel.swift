@@ -47,6 +47,14 @@ struct PlaylistServer: Hashable {
         }
         return servers
     }
+
+    /// Every signed-in server with favorites, for its sidebar Favorites row.
+    @MainActor static func favoritesServers() -> [PlaylistServer] {
+        let registry = MediaProviderRegistry.shared
+        let ids = ([registry.plexProvider?.id].compactMap { $0 } + ServerDataStore.shared.sources.map(\.providerID))
+            .filter { registry.provider(for: $0)?.supportsFavorites == true }
+        return current(Set(ids))
+    }
 }
 
 /// One library in the sidebar, any server's, in the user's order.
@@ -112,7 +120,8 @@ enum ShellSidebarModel {
         profileAvatar: URL? = nil,
         canSwitchProfile: Bool = false,
         hasMediaServer: Bool = true,
-        playlistServers: [PlaylistServer] = []
+        playlistServers: [PlaylistServer] = [],
+        favoritesServers: [PlaylistServer] = []
     ) -> [ShellSidebarSection] {
         var sections: [ShellSidebarSection] = []
 
@@ -136,7 +145,8 @@ enum ShellSidebarModel {
         let rows = arrangeableRows(libraries: libraries, liveTVSources: liveTVSources, combineLiveTV: combineLiveTV,
                                    showDiscover: showDiscover && hasMediaServer,
                                    showWatchlist: showWatchlist && hasMediaServer,
-                                   hiddenKeys: hiddenKeys, playlistServers: playlistServers)
+                                   hiddenKeys: hiddenKeys, playlistServers: playlistServers,
+                                   favoritesServers: favoritesServers)
         let byKey = Dictionary(rows.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
         let (arranged, grouped) = SidebarArrangement.sections(
             SidebarArrangement.arrange(rows.map(\.key), order: order))
@@ -179,7 +189,7 @@ enum ShellSidebarModel {
     }
 
     /// Every arrangeable row shown, before ordering: Discover, the watchlist, the
-    /// libraries in order, each server's Playlists row, and Live TV. Settings >
+    /// libraries in order, each server's Playlists and Favorites rows, and Live TV. Settings >
     /// Sidebar passes everything, hidden rows included.
     static func arrangeableRows(
         libraries: [SidebarLibrary],
@@ -188,7 +198,8 @@ enum ShellSidebarModel {
         showDiscover: Bool,
         showWatchlist: Bool,
         hiddenKeys: Set<String> = [],
-        playlistServers: [PlaylistServer] = []
+        playlistServers: [PlaylistServer] = [],
+        favoritesServers: [PlaylistServer] = []
     ) -> [Row] {
         var rows: [Row] = []
         if showDiscover {
@@ -205,6 +216,13 @@ enum ShellSidebarModel {
             let key = SidebarArrangement.playlists(server: server.serverID)
             guard !hiddenKeys.contains(key), !hiddenKeys.contains(SidebarArrangement.allPlaylistsHidden) else { continue }
             rows.append(Row(key: key, item: playlistsItem(server), serverName: server.name))
+        }
+        for server in favoritesServers {
+            let key = SidebarArrangement.favorites(server: server.serverID)
+            guard !hiddenKeys.contains(key) else { continue }
+            rows.append(Row(key: key, item: ShellSidebarItem(tab: .favorites(providerID: server.providerID),
+                                                             title: String(localized: "Favorites"), icon: "heart.fill"),
+                            serverName: server.name))
         }
         if !liveTVSources.isEmpty, combineLiveTV {
             rows.append(Row(key: SidebarArrangement.liveTV,

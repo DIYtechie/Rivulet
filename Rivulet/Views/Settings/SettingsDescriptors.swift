@@ -121,6 +121,10 @@ enum SettingsDescriptorStore {
             icon: "music.note.list",
             description: "Click to show or hide this playlist on Home. Once it is shown, press and hold to move it up or down."
         ),
+        "homeGrid": SettingDescriptor(
+            icon: "square.grid.3x3",
+            description: "Choose a library to show at the bottom of Home as a grid, the same as on its library page. More titles load as you scroll down."
+        ),
         "homeFavoriteMovies": SettingDescriptor(
             icon: "star",
             description: "Click to show or hide your favorite movies on Home. Once they are shown, press and hold to move them up or down."
@@ -613,6 +617,7 @@ enum SettingsDescriptorStore {
         case .cache: return ("internaldrive", .systemGray)
         case .appIconPicker: return ("app.badge", .systemPurple)
         case .homeHeroPicker: return ("sparkles.rectangle.stack", .systemPurple)
+        case .homeGridPicker: return ("square.grid.3x3", .systemPurple)
         case .detailRatingPicker: return ("star.leadinghalf.filled", .systemYellow)
         case .autoplayCountdownPicker: return ("forward.end.alt", .systemPurple)
         case .skipIntervalPicker: return ("forward.fill", .systemBlue)
