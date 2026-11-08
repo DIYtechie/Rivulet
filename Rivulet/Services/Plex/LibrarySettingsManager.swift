@@ -436,8 +436,9 @@ class LibrarySettingsManager: ObservableObject {
     /// Get the sort option for a specific library
     /// - Parameter libraryKey: The library key
     /// - Returns: The configured sort option, or `.addedAtDesc` as default
+    /// A to Z until the user picks another sort for the library.
     func getSortOption(for libraryKey: String) -> LibrarySortOption {
-        librarySortOptions[libraryKey] ?? .addedAtDesc
+        librarySortOptions[libraryKey] ?? .titleAsc
     }
 
     /// Set the sort option for a specific library

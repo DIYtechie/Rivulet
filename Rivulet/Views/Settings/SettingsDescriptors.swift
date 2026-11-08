@@ -44,6 +44,7 @@ enum SettingsDescriptorStore {
         if id.hasPrefix("sm_") { return descriptors["subtitleMode"] }
         if id.hasPrefix("ai_") { return descriptors["appIcon"] }
         if id.hasPrefix("hh_") { return descriptors["homeHero"] }
+        if id.hasPrefix("hg_") { return descriptors["homeGrid"] }
         if id.hasPrefix("dr_") { return descriptors["detailRating"] }
         if id.hasPrefix("alim_") { return descriptors["autoplayLimit"] }
         if id.hasPrefix("plexServer_") { return descriptors["plexServerOption"] }
@@ -133,6 +134,10 @@ enum SettingsDescriptorStore {
         "resetHomeHero": SettingDescriptor(
             icon: "arrow.counterclockwise",
             description: "Put the hero back to Trending only, with no playlists."
+        ),
+        "homeGrid": SettingDescriptor(
+            icon: "square.grid.3x3",
+            description: "Choose a library to show at the bottom of Home as a grid, the same as on its library page. More titles load as you scroll down."
         ),
         "homeHero": SettingDescriptor(
             icon: "sparkles.rectangle.stack",
@@ -655,6 +660,7 @@ enum SettingsDescriptorStore {
         case .cache: return ("internaldrive", .systemGray)
         case .appIconPicker: return ("app.badge", .systemPurple)
         case .homeHeroPicker: return ("sparkles.rectangle.stack", .systemPurple)
+        case .homeGridPicker: return ("square.grid.3x3", .systemPurple)
         case .detailRatingPicker: return ("star.leadinghalf.filled", .systemYellow)
         case .autoplayCountdownPicker: return ("forward.end.alt", .systemPurple)
         case .skipIntervalPicker: return ("forward.fill", .systemBlue)

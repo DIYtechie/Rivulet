@@ -505,6 +505,10 @@ final class PlexHomeViewController: UIViewController {
     /// A provider library's own rows (Continue Watching, Recently Added), the
     /// counterpart of `dataStore.libraryItemsByKey[key]` for Plex.
     private var providerLibraryRows: CachedHomeRail = []
+    /// Home only: the library it ends with as a grid (`HomeGridLibrary`).
+    private var homeGridLibrary: MediaLibrary?
+    /// The library the grid pages through: this page's, or the one Home ends with.
+    private var gridLibrary: MediaLibrary? { providerLibrary ?? homeGridLibrary }
     /// MediaItem hero for a provider library, and for a Home of other servers only.
     private var providerHeroItems: [MediaItem] = []
 
@@ -1499,7 +1503,7 @@ final class PlexHomeViewController: UIViewController {
               gridItems.isEmpty || index < gridItems.count else { return }
         let pageSize = gridPageSize
         let fetchPage: (Int) async throws -> (items: [MediaItem], totalSize: Int?)
-        if let library = providerLibrary {
+        if let library = gridLibrary {
             guard let provider = MediaProviderRegistry.shared.provider(for: library.providerID) else { return }
             let sort = Self.providerSort(gridSort)
             let filter = libraryFilter
@@ -1858,7 +1862,7 @@ final class PlexHomeViewController: UIViewController {
 
     /// The sort menu: this library's options, the active one checked.
     private func sortMenu() -> UIMenu {
-        let options = providerLibrary.map { library in
+        let options = gridLibrary.map { library in
             MediaProviderRegistry.shared.provider(for: library.providerID)?.sortOptions(for: library.kind)
                 ?? LibrarySortOption.expressible(for: library.kind)
         } ?? LibrarySortOption.options(for: currentLibraryType)
@@ -1874,7 +1878,15 @@ final class PlexHomeViewController: UIViewController {
     /// The snapshot + sort-header reconfigure run immediately so the sort
     /// name flips on selection rather than after the fetch resolves.
     private func applySort(_ option: LibrarySortOption) {
-        guard case .library(let key, _) = mode, option != gridSort else { return }
+        let key: String
+        if case .library(let libraryKey, _) = mode {
+            key = libraryKey
+        } else if case .home = mode, let library = homeGridLibrary {
+            key = Self.homeGridSortKey(library)
+        } else {
+            return
+        }
+        guard option != gridSort else { return }
         gridSort = option
         LibrarySettingsManager.shared.setSortOption(option, for: key)
         resetGrid()
@@ -3490,6 +3502,11 @@ final class PlexHomeViewController: UIViewController {
                     self?.otherServersHomeRowsChanged()
                 }
                 .store(in: &dataStoreObservers)
+            NotificationCenter.default.publisher(for: HomeGridLibrary.changedNotification).map { _ in () }
+                .merge(with: servers.$libraries.map { _ in () }, PlexDataStore.shared.$libraries.map { _ in () })
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] in self?.reloadHomeGrid() }
+                .store(in: &dataStoreObservers)
         }
     }
 
@@ -4687,7 +4704,29 @@ final class PlexHomeViewController: UIViewController {
             // else: no section when recommendations come back empty.
         }
 
+        // The library Home ends with, as its library page shows it: header, then the grid.
+        if let library = homeGridLibrary {
+            sections.append(.sortHeader(title: library.title))
+            sections.append(.grid(items: mapGridSlots(gridItems)))
+        }
+
         return sections
+    }
+
+    /// Home's grid keeps its own sort, apart from the library page's.
+    private static func homeGridSortKey(_ library: MediaLibrary) -> String { "home:" + library.settingsKey }
+
+    /// Follows Settings > Appearance > Home > Grid, and the libraries arriving
+    /// after launch: rebuilds the grid when its library changes.
+    private func reloadHomeGrid() {
+        guard case .home = mode else { return }
+        let library = HomeGridLibrary.selected
+        guard library?.settingsKey != homeGridLibrary?.settingsKey else { return }
+        homeGridLibrary = library
+        gridSort = library.map { LibrarySettingsManager.shared.getSortOption(for: Self.homeGridSortKey($0)) } ?? .titleAsc
+        resetGrid()
+        applySnapshot(animated: false)
+        if library != nil { loadGridPage(containing: 0) }
     }
 
     /// Home's rows with two servers, never merged: each server's Continue

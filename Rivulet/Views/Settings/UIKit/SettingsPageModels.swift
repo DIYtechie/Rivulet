@@ -238,6 +238,7 @@ enum SettingsContent {
         case .about:       return about
         case .appIconPicker:          return appIconPicker
         case .homeHeroPicker:         return homeHeroPicker
+        case .homeGridPicker:         return homeGridPicker
         case .detailRatingPicker:     return detailRatingPicker
         case .autoplayCountdownPicker: return autoplayCountdownPicker
         case .skipIntervalPicker:     return skipIntervalPicker
@@ -277,6 +278,19 @@ enum SettingsContent {
 
     /// What the hero shows (`HeroSources`): a toggle per list, then per
     /// playlist. Several are mixed; none turns the hero off.
+    /// The library Home ends with as a grid (`HomeGridLibrary`), or Off.
+    private static var homeGridPicker: [SettingsRowItem] {
+        let off = SettingsRowItem(id: "hg_off", title: "Off", kind: .option(
+            isSelected: { HomeGridLibrary.selectedKey == nil },
+            select: { HomeGridLibrary.select(nil) }))
+        return [off] + HomeGridLibrary.candidates.map { library in
+            SettingsRowItem(id: "hg_\(library.settingsKey)", verbatim: serverLabeled(library.title, providerID: library.providerID),
+                            kind: .option(
+                isSelected: { HomeGridLibrary.selectedKey == library.settingsKey },
+                select: { HomeGridLibrary.select(library) }))
+        }
+    }
+
     private static var homeHeroPicker: [SettingsRowItem] {
         let sources = HeroSources.Source.allCases.filter { source in
             ![.favoriteMovies, .favoriteShows].contains(source) || PersonalHomeRows.offersFavorites
@@ -469,6 +483,11 @@ enum SettingsContent {
             SettingsRowItem(id: "homeRows", title: "Rows", kind: .navigation(.homeRows)),
             SettingsRowItem(id: "homeHero", title: "Hero",
                             kind: .navigationValue(.homeHeroPicker, value: { homeHeroTitle })),
+            SettingsRowItem(id: "homeGrid", title: "Grid",
+                            kind: .navigationValue(.homeGridPicker, value: {
+                                HomeGridLibrary.selected.map { serverLabeled($0.title, providerID: $0.providerID) }
+                                    ?? String(localized: "Off")
+                            })),
             toggle("personalizedRecs", "Personalized Recommendations", key: "enablePersonalizedRecommendations", default: false)
         ]
         rows += [
