@@ -1696,17 +1696,22 @@ final class PlexHomeViewController: UIViewController {
         alphabetBarShown = false
         alphabetBar.setLetters([])
         alphabetBar.isHidden = true
-        guard case .library(let key, _) = mode,
+        // A library page, or Home ending with a library's grid.
+        let pageKey: String?
+        if case .library(let key, _) = mode { pageKey = key } else { pageKey = nil }
+        let isHomeGrid = if case .home = mode { homeGridLibrary != nil } else { false }
+        guard pageKey != nil || isHomeGrid,
               !gridShowsCollections, !libraryFilter.isActive,   // letter counts ignore filters
               gridSort == .titleAsc || gridSort == .titleDesc else { return }
         let gen = gridGeneration
         let descending = gridSort == .titleDesc
         let fetchCounts: () async throws -> [PlexFirstCharacter]
-        if let library = providerLibrary {
+        if let library = gridLibrary {
             guard let provider = MediaProviderRegistry.shared.provider(for: library.providerID) else { return }
             fetchCounts = { try await provider.letterCounts(in: library) }
         } else {
-            guard let serverURL = authManager.selectedServerURL,
+            guard let key = pageKey,
+                  let serverURL = authManager.selectedServerURL,
                   let token = authManager.selectedServerToken else { return }
             fetchCounts = {
                 try await PlexNetworkManager.shared.getLibraryFirstCharacters(
@@ -2850,7 +2855,8 @@ final class PlexHomeViewController: UIViewController {
         // Library alphabet bar (issue #308), over the grid's trailing margin.
         // Hidden until focus is in the grid, so Right from a hub row's last
         // tile cannot land on it and jump a grid the user is not looking at.
-        if case .library = mode {
+        // Home has one too, for the library grid it can end with.
+        if isLibraryOrHome {
             // tvOS's fast-scroll index bar stays invisible. It still takes
             // focus ~1.5s into a held Up/Down (see didUpdateFocusIn); that
             // hand-off is the signal for our own fast scroll below.
@@ -4727,6 +4733,14 @@ final class PlexHomeViewController: UIViewController {
         resetGrid()
         applySnapshot(animated: false)
         if library != nil { loadGridPage(containing: 0) }
+        loadAlphabetIndex()
+    }
+
+    private var isLibraryOrHome: Bool {
+        switch mode {
+        case .library, .home: return true
+        default: return false
+        }
     }
 
     /// Home's rows with two servers, never merged: each server's Continue
@@ -7747,6 +7761,14 @@ extension PlexHomeViewController: UICollectionViewDelegate {
             return
         }
         let target = IndexPath(item: indexPath.item - 1, section: indexPath.section)
+        // A grid's first column: the previous item ends the row above. Left leaves for the sidebar.
+        if section.kind == .grid || section.kind == .watchlistGrid,
+           let current = collectionView.layoutAttributesForItem(at: indexPath),
+           let previous = collectionView.layoutAttributesForItem(at: target),
+           previous.frame.midY != current.frame.midY {
+            leftEdgeFocusGuide.preferredFocusEnvironments = []
+            return
+        }
         // Point the guide at the previous cell if it is on screen. Do not scroll the row to bring it in:
         // this runs on every focus update and keeps re-centering the row. Otherwise `shouldUpdateFocusIn`
         // handles the Left.
